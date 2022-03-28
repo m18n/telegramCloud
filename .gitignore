@@ -1,0 +1,3 @@
+build/Debug/*
+tdlib/
+!build/Debug/DEBUG.txt
