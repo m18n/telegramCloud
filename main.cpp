@@ -7,7 +7,7 @@
 #include "header/tdclass.h"
 #include <iostream>
 namespace td_api = td::td_api;
-// class TdExamples
+// class TdExamplese
 // {
 // public:
 //   TdExample()
