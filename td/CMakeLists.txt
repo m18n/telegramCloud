@@ -6,7 +6,7 @@ if (POLICY CMP0065)
   cmake_policy(SET CMP0065 NEW)
 endif()
 
-project(TDLib VERSION 1.8.1 LANGUAGES CXX C)
+project(TDLib VERSION 1.8.2 LANGUAGES CXX C)
 
 if (NOT DEFINED CMAKE_MODULE_PATH)
   set(CMAKE_MODULE_PATH "")
@@ -289,6 +289,7 @@ set(TDLIB_SOURCE
   td/telegram/CallDiscardReason.cpp
   td/telegram/CallManager.cpp
   td/telegram/CallbackQueriesManager.cpp
+  td/telegram/ChannelParticipantFilter.cpp
   td/telegram/ClientActor.cpp
   td/telegram/ConfigManager.cpp
   td/telegram/ConfigShared.cpp
@@ -310,9 +311,12 @@ set(TDLIB_SOURCE
   td/telegram/DialogInviteLink.cpp
   td/telegram/DialogLocation.cpp
   td/telegram/DialogParticipant.cpp
+  td/telegram/DialogParticipantFilter.cpp
   td/telegram/DialogSource.cpp
   td/telegram/Document.cpp
   td/telegram/DocumentsManager.cpp
+  td/telegram/DownloadManager.cpp
+  td/telegram/DownloadManagerCallback.cpp
   td/telegram/DraftMessage.cpp
   td/telegram/FileReferenceManager.cpp
   td/telegram/files/FileBitmask.cpp
@@ -474,7 +478,9 @@ set(TDLIB_SOURCE
   td/telegram/CallId.h
   td/telegram/CallManager.h
   td/telegram/CallbackQueriesManager.h
+  td/telegram/ChainId.h
   td/telegram/ChannelId.h
+  td/telegram/ChannelParticipantFilter.h
   td/telegram/ChatId.h
   td/telegram/ClientActor.h
   td/telegram/ConfigManager.h
@@ -501,9 +507,12 @@ set(TDLIB_SOURCE
   td/telegram/DialogListId.h
   td/telegram/DialogLocation.h
   td/telegram/DialogParticipant.h
+  td/telegram/DialogParticipantFilter.h
   td/telegram/DialogSource.h
   td/telegram/Document.h
   td/telegram/DocumentsManager.h
+  td/telegram/DownloadManager.h
+  td/telegram/DownloadManagerCallback.h
   td/telegram/DraftMessage.h
   td/telegram/EncryptedFile.h
   td/telegram/FileReferenceManager.h
@@ -676,6 +685,7 @@ set(TDLIB_SOURCE
   td/telegram/files/FileId.hpp
   td/telegram/files/FileLocation.hpp
   td/telegram/files/FileManager.hpp
+  td/telegram/files/FileSourceId.hpp
   td/telegram/Game.hpp
   td/telegram/InputMessageText.hpp
   td/telegram/MessageEntity.hpp
@@ -703,6 +713,11 @@ set(TDLIB_SOURCE
 set(MEMPROF_SOURCE
   memprof/memprof.cpp
   memprof/memprof.h
+)
+
+set(MEMPROF_STAT_SOURCE
+  memprof/memprof_stat.cpp
+  memprof/memprof_stat.h
 )
 
 #RULES
@@ -737,6 +752,10 @@ if (MEMPROF)
     message(FATAL_ERROR "Unsupported MEMPROF value \"${MEMPROF}\"")
   endif()
 endif()
+
+add_library(memprof_stat EXCLUDE_FROM_ALL STATIC ${MEMPROF_STAT_SOURCE})
+target_include_directories(memprof_stat PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_link_libraries(memprof_stat PRIVATE tdutils)
 
 
 add_library(tdapi ${TL_TD_API_SOURCE})

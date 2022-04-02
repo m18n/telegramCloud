@@ -1270,9 +1270,14 @@ static Slice fix_url(Slice str) {
   return full_url;
 }
 
-const std::unordered_set<Slice, SliceHash> &get_valid_short_usernames() {
-  static const std::unordered_set<Slice, SliceHash> valid_usernames{"gif",  "wiki", "vid",  "bing", "pic",
-                                                                    "bold", "imdb", "coub", "like", "vote"};
+const FlatHashSet<Slice, SliceHash> &get_valid_short_usernames() {
+  static const FlatHashSet<Slice, SliceHash> valid_usernames = [] {
+    FlatHashSet<Slice, SliceHash> result;
+    for (auto username : {"gif", "wiki", "vid", "bing", "pic", "bold", "imdb", "coub", "like", "vote"}) {
+      result.insert(Slice(username));
+    }
+    return result;
+  }();
   return valid_usernames;
 }
 
@@ -3269,9 +3274,17 @@ Result<vector<MessageEntity>> get_message_entities(const ContactsManager *contac
         if (!clean_input_string(entity->url_)) {
           return Status::Error(400, "MessageEntityTextUrl.url must be encoded in UTF-8");
         }
+        auto user_id = LinkManager::get_link_user_id(entity->url_);
+        if (user_id.is_valid()) {
+          if (contacts_manager != nullptr && !contacts_manager->have_input_user(user_id)) {
+            return Status::Error(400, "Have no access to the user");
+          }
+          entities.emplace_back(offset, length, user_id);
+          break;
+        }
         auto r_url = LinkManager::check_link(entity->url_);
         if (r_url.is_error()) {
-          return Status::Error(400, PSTRING() << "Wrong message input_entity: " << r_url.error().message());
+          return Status::Error(400, PSTRING() << "Wrong URL entity specified: " << r_url.error().message());
         }
         entities.emplace_back(MessageEntity::Type::TextUrl, offset, length, r_url.move_as_ok());
         break;
@@ -4141,7 +4154,7 @@ void add_formatted_text_dependencies(Dependencies &dependencies, const Formatted
   }
   for (auto &entity : text->entities) {
     if (entity.user_id.is_valid()) {
-      dependencies.user_ids.insert(entity.user_id);
+      dependencies.add(entity.user_id);
     }
   }
 }

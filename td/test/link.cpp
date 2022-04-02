@@ -125,6 +125,9 @@ TEST(Link, parse_internal_link) {
   auto language_pack = [](const td::string &language_pack_name) {
     return td::td_api::make_object<td::td_api::internalLinkTypeLanguagePack>(language_pack_name);
   };
+  auto language_settings = [] {
+    return td::td_api::make_object<td::td_api::internalLinkTypeLanguageSettings>();
+  };
   auto message = [](const td::string &url) {
     return td::td_api::make_object<td::td_api::internalLinkTypeMessage>(url);
   };
@@ -140,6 +143,9 @@ TEST(Link, parse_internal_link) {
   };
   auto phone_number_confirmation = [](const td::string &hash, const td::string &phone_number) {
     return td::td_api::make_object<td::td_api::internalLinkTypePhoneNumberConfirmation>(hash, phone_number);
+  };
+  auto privacy_and_security_settings = [] {
+    return td::td_api::make_object<td::td_api::internalLinkTypePrivacyAndSecuritySettings>();
   };
   auto proxy_mtproto = [](const td::string &server, td::int32 port, const td::string &secret) {
     return td::td_api::make_object<td::td_api::internalLinkTypeProxy>(
@@ -173,6 +179,9 @@ TEST(Link, parse_internal_link) {
   };
   auto unsupported_proxy = [] {
     return td::td_api::make_object<td::td_api::internalLinkTypeUnsupportedProxy>();
+  };
+  auto user_phone_number = [](const td::string &phone_number) {
+    return td::td_api::make_object<td::td_api::internalLinkTypeUserPhoneNumber>(phone_number);
   };
   auto video_chat = [](const td::string &chat_username, const td::string &invite_hash, bool is_live_stream) {
     return td::td_api::make_object<td::td_api::internalLinkTypeVideoChat>(chat_username, invite_hash, is_live_stream);
@@ -211,6 +220,18 @@ TEST(Link, parse_internal_link) {
   parse_internal_link("tg:resolve?domain=&post=12345&single",
                       unknown_deep_link("tg://resolve?domain=&post=12345&single"));
   parse_internal_link("tg:resolve?domain=telegram&post=&single", public_chat("telegram"));
+  parse_internal_link("tg:resolve?domain=123456&post=&single",
+                      unknown_deep_link("tg://resolve?domain=123456&post=&single"));
+
+  parse_internal_link("tg:resolve?phone=1", user_phone_number("1"));
+  parse_internal_link("tg:resolve?phone=123456", user_phone_number("123456"));
+  parse_internal_link("tg:resolve?phone=01234567890123456789012345678912",
+                      user_phone_number("01234567890123456789012345678912"));
+  parse_internal_link("tg:resolve?phone=012345678901234567890123456789123",
+                      unknown_deep_link("tg://resolve?phone=012345678901234567890123456789123"));
+  parse_internal_link("tg:resolve?phone=", unknown_deep_link("tg://resolve?phone="));
+  parse_internal_link("tg:resolve?phone=+123", unknown_deep_link("tg://resolve?phone=+123"));
+  parse_internal_link("tg:resolve?phone=123456 ", unknown_deep_link("tg://resolve?phone=123456 "));
 
   parse_internal_link("t.me/username/12345?single", message("tg:resolve?domain=username&post=12345&single"));
   parse_internal_link("t.me/username/12345?asdasd", message("tg:resolve?domain=username&post=12345"));
@@ -386,9 +407,9 @@ TEST(Link, parse_internal_link) {
   parse_internal_link("t.me/+aba%20aba", chat_invite("aba%20aba"));
   parse_internal_link("t.me/+aba%30aba", chat_invite("aba0aba"));
   parse_internal_link("t.me/+123456a", chat_invite("123456a"));
-  parse_internal_link("t.me/%2012345678901", chat_invite("12345678901"));
-  parse_internal_link("t.me/+123456", chat_invite("123456"));
-  parse_internal_link("t.me/ 123456/123123/12/31/a/s//21w/?asdas#test", chat_invite("123456"));
+  parse_internal_link("t.me/%2012345678901", user_phone_number("12345678901"));
+  parse_internal_link("t.me/+123456", user_phone_number("123456"));
+  parse_internal_link("t.me/ 123456/123123/12/31/a/s//21w/?asdas#test", user_phone_number("123456"));
   parse_internal_link("t.me/ /123456/123123/12/31/a/s//21w/?asdas#test", nullptr);
 
   parse_internal_link("tg:join?invite=abcdef", chat_invite("abcdef"));
@@ -671,4 +692,6 @@ TEST(Link, parse_internal_link) {
   parse_internal_link("tg://settings/change_number", change_phone_number());
   parse_internal_link("tg://settings/folders", filter_settings());
   parse_internal_link("tg://settings/filters", settings());
+  parse_internal_link("tg://settings/language", language_settings());
+  parse_internal_link("tg://settings/privacy", privacy_and_security_settings());
 }

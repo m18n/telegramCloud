@@ -67,6 +67,18 @@ static bool is_valid_username(Slice username) {
   return true;
 }
 
+static bool is_valid_phone_number(Slice phone_number) {
+  if (phone_number.empty() || phone_number.size() > 32) {
+    return false;
+  }
+  for (auto c : phone_number) {
+    if (!is_digit(c)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 static string get_url_query_hash(bool is_tg, const HttpUrlQuery &url_query) {
   const auto &path = url_query.path_;
   if (is_tg) {
@@ -80,6 +92,9 @@ static string get_url_query_hash(bool is_tg, const HttpUrlQuery &url_query) {
       return path[1];
     }
     if (!path.empty() && path[0].size() >= 2 && (path[0][0] == ' ' || path[0][0] == '+')) {
+      if (is_valid_phone_number(Slice(path[0]).substr(1))) {
+        return string();
+      }
       // /+<link>
       return path[0].substr(1);
     }
@@ -209,6 +224,12 @@ class LinkManager::InternalLinkLanguage final : public InternalLink {
   }
 };
 
+class LinkManager::InternalLinkLanguageSettings final : public InternalLink {
+  td_api::object_ptr<td_api::InternalLinkType> get_internal_link_type_object() const final {
+    return td_api::make_object<td_api::internalLinkTypeLanguageSettings>();
+  }
+};
+
 class LinkManager::InternalLinkMessage final : public InternalLink {
   string url_;
 
@@ -256,6 +277,12 @@ class LinkManager::InternalLinkPassportDataRequest final : public InternalLink {
       , public_key_(std::move(public_key))
       , nonce_(std::move(nonce))
       , callback_url_(std::move(callback_url)) {
+  }
+};
+
+class LinkManager::InternalLinkPrivacyAndSecuritySettings final : public InternalLink {
+  td_api::object_ptr<td_api::InternalLinkType> get_internal_link_type_object() const final {
+    return td_api::make_object<td_api::internalLinkTypePrivacyAndSecuritySettings>();
   }
 };
 
@@ -360,6 +387,18 @@ class LinkManager::InternalLinkUnknownDeepLink final : public InternalLink {
 class LinkManager::InternalLinkUnsupportedProxy final : public InternalLink {
   td_api::object_ptr<td_api::InternalLinkType> get_internal_link_type_object() const final {
     return td_api::make_object<td_api::internalLinkTypeUnsupportedProxy>();
+  }
+};
+
+class LinkManager::InternalLinkUserPhoneNumber final : public InternalLink {
+  string phone_number_;
+
+  td_api::object_ptr<td_api::InternalLinkType> get_internal_link_type_object() const final {
+    return td_api::make_object<td_api::internalLinkTypeUserPhoneNumber>(phone_number_);
+  }
+
+ public:
+  explicit InternalLinkUserPhoneNumber(string phone_number) : phone_number_(std::move(phone_number)) {
   }
 };
 
@@ -803,6 +842,9 @@ unique_ptr<LinkManager::InternalLink> LinkManager::parse_tg_link_query(Slice que
       }
       // resolve?domain=<username>
       return td::make_unique<InternalLinkPublicDialog>(std::move(username));
+    } else if (is_valid_phone_number(get_arg("phone"))) {
+      // resolve?phone=12345
+      return td::make_unique<InternalLinkUserPhoneNumber>(get_arg("phone"));
     }
   } else if (path.size() == 1 && path[0] == "login") {
     // login?code=123456
@@ -828,6 +870,14 @@ unique_ptr<LinkManager::InternalLink> LinkManager::parse_tg_link_query(Slice que
     if (path.size() == 2 && path[1] == "folders") {
       // settings/folders
       return td::make_unique<InternalLinkFilterSettings>();
+    }
+    if (path.size() == 2 && path[1] == "language") {
+      // settings/language
+      return td::make_unique<InternalLinkLanguageSettings>();
+    }
+    if (path.size() == 2 && path[1] == "privacy") {
+      // settings/privacy
+      return td::make_unique<InternalLinkPrivacyAndSecuritySettings>();
     }
     if (path.size() == 2 && path[1] == "themes") {
       // settings/themes
@@ -959,9 +1009,14 @@ unique_ptr<LinkManager::InternalLink> LinkManager::parse_t_me_link_query(Slice q
     }
   } else if (path[0][0] == ' ' || path[0][0] == '+') {
     if (path[0].size() >= 2) {
-      // /+<link>
-      return td::make_unique<InternalLinkDialogInvite>(PSTRING() << "tg:join?invite="
-                                                                 << url_encode(get_url_query_hash(false, url_query)));
+      if (is_valid_phone_number(Slice(path[0]).substr(1))) {
+        // /+<phone_number>
+        return td::make_unique<InternalLinkUserPhoneNumber>(path[0].substr(1));
+      } else {
+        // /+<link>
+        return td::make_unique<InternalLinkDialogInvite>(PSTRING() << "tg:join?invite="
+                                                                   << url_encode(get_url_query_hash(false, url_query)));
+      }
     }
   } else if (path[0] == "addstickers") {
     if (path.size() >= 2 && !path[1].empty()) {
