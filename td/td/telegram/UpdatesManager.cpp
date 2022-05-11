@@ -7,6 +7,7 @@
 #include "td/telegram/UpdatesManager.h"
 
 #include "td/telegram/AnimationsManager.h"
+#include "td/telegram/AttachMenuManager.h"
 #include "td/telegram/AuthManager.h"
 #include "td/telegram/CallbackQueriesManager.h"
 #include "td/telegram/CallManager.h"
@@ -32,6 +33,7 @@
 #include "td/telegram/net/DcOptions.h"
 #include "td/telegram/net/NetQuery.h"
 #include "td/telegram/NotificationManager.h"
+#include "td/telegram/NotificationSettingsManager.h"
 #include "td/telegram/Payments.h"
 #include "td/telegram/PollId.h"
 #include "td/telegram/PollManager.h"
@@ -175,6 +177,8 @@ UpdatesManager::UpdatesManager(Td *td, ActorShared<> parent) : td_(td), parent_(
 
 void UpdatesManager::tear_down() {
   parent_.reset();
+
+  LOG(DEBUG) << "Have " << being_processed_updates_ << " unprocessed updates to apply";
 }
 
 void UpdatesManager::hangup_shared() {
@@ -529,7 +533,7 @@ bool UpdatesManager::is_acceptable_message_entities(
     if (entity->get_id() == telegram_api::messageEntityMentionName::ID) {
       auto entity_mention_name = static_cast<const telegram_api::messageEntityMentionName *>(entity.get());
       UserId user_id(entity_mention_name->user_id_);
-      if (!is_acceptable_user(user_id) || !td_->contacts_manager_->have_input_user(user_id)) {
+      if (!is_acceptable_user(user_id) || td_->contacts_manager_->get_input_user(user_id).is_error()) {
         return false;
       }
     }
@@ -546,7 +550,7 @@ bool UpdatesManager::is_acceptable_reply_markup(const tl_object_ptr<telegram_api
       if (button->get_id() == telegram_api::keyboardButtonUserProfile::ID) {
         auto user_profile_button = static_cast<const telegram_api::keyboardButtonUserProfile *>(button.get());
         UserId user_id(user_profile_button->user_id_);
-        if (!is_acceptable_user(user_id) || !td_->contacts_manager_->have_input_user(user_id)) {
+        if (!is_acceptable_user(user_id) || td_->contacts_manager_->get_input_user(user_id).is_error()) {
           return false;
         }
       }
@@ -717,6 +721,8 @@ bool UpdatesManager::is_acceptable_message(const telegram_api::Message *message_
         case telegram_api::messageActionSetMessagesTTL::ID:
         case telegram_api::messageActionSetChatTheme::ID:
         case telegram_api::messageActionChatJoinedByRequest::ID:
+        case telegram_api::messageActionWebViewDataSentMe::ID:
+        case telegram_api::messageActionWebViewDataSent::ID:
           break;
         case telegram_api::messageActionChatCreate::ID: {
           auto chat_create = static_cast<const telegram_api::messageActionChatCreate *>(action);
@@ -1188,19 +1194,12 @@ vector<DialogId> UpdatesManager::get_chat_dialog_ids(const telegram_api::Updates
   vector<DialogId> dialog_ids;
   dialog_ids.reserve(chats->size());
   for (const auto &chat : *chats) {
-    auto chat_id = ContactsManager::get_chat_id(chat);
-    if (chat_id.is_valid()) {
-      dialog_ids.push_back(DialogId(chat_id));
-      continue;
+    auto dialog_id = ContactsManager::get_dialog_id(chat);
+    if (dialog_id.is_valid()) {
+      dialog_ids.push_back(dialog_id);
+    } else {
+      LOG(ERROR) << "Can't find identifier of " << oneline(to_string(chat));
     }
-
-    auto channel_id = ContactsManager::get_channel_id(chat);
-    if (channel_id.is_valid()) {
-      dialog_ids.push_back(DialogId(channel_id));
-      continue;
-    }
-
-    LOG(ERROR) << "Can't find identifier of " << oneline(to_string(chat));
   }
   return dialog_ids;
 }
@@ -1398,10 +1397,7 @@ void UpdatesManager::on_get_difference(tl_object_ptr<telegram_api::updates_Diffe
         pending_qts_updates_.clear();
 
         for (auto &pending_update : pending_qts_updates) {
-          auto promises = std::move(pending_update.second.promises);
-          for (auto &promise : promises) {
-            promise.set_value(Unit());
-          }
+          set_promises(pending_update.second.promises);
         }
       }
 
@@ -1566,6 +1562,7 @@ void UpdatesManager::after_get_difference() {
   td_->download_manager_->after_get_difference();
   td_->inline_queries_manager_->after_get_difference();
   td_->messages_manager_->after_get_difference();
+  td_->notification_settings_manager_->after_get_difference();
   td_->stickers_manager_->after_get_difference();
   send_closure_later(td_->notification_manager_actor_, &NotificationManager::after_get_difference);
   send_closure(G()->state_manager(), &StateManager::on_synchronized, true);
@@ -1707,6 +1704,7 @@ void UpdatesManager::on_pending_updates(vector<tl_object_ptr<telegram_api::Updat
   }
 
   MultiPromiseActorSafe mpas{"OnPendingUpdatesMultiPromiseActor"};
+  being_processed_updates_++;
   mpas.add_promise([actor_id = create_reference(), promise = std::move(promise)](Result<Unit> &&result) mutable {
     send_closure(actor_id, &UpdatesManager::on_pending_updates_processed, std::move(result), std::move(promise));
   });
@@ -1819,7 +1817,7 @@ void UpdatesManager::on_pending_updates(vector<tl_object_ptr<telegram_api::Updat
 
   LOG(INFO) << "Gap in seq has found. Receive " << updates.size() << " updates [" << seq_begin << ", " << seq_end
             << "] from " << source << ", but seq = " << seq_;
-  LOG_IF(WARNING, pending_seq_updates_.find(seq_begin) != pending_seq_updates_.end())
+  LOG_IF(WARNING, pending_seq_updates_.count(seq_begin) > 0)
       << "Already have pending updates with seq = " << seq_begin << ", but receive it again from " << source;
 
   pending_seq_updates_.emplace(
@@ -1829,6 +1827,7 @@ void UpdatesManager::on_pending_updates(vector<tl_object_ptr<telegram_api::Updat
 }
 
 void UpdatesManager::on_pending_updates_processed(Result<Unit> result, Promise<Unit> promise) {
+  being_processed_updates_--;
   promise.set_result(std::move(result));
 }
 
@@ -2407,11 +2406,8 @@ void UpdatesManager::process_pending_qts_updates() {
       // the update will be applied later
       break;
     }
-    auto promise = PromiseCreator::lambda([promises = std::move(update_it->second.promises)](Unit) mutable {
-      for (auto &promise : promises) {
-        promise.set_value(Unit());
-      }
-    });
+    auto promise = PromiseCreator::lambda(
+        [promises = std::move(update_it->second.promises)](Unit) mutable { set_promises(promises); });
     processed_pending_update = true;
     if (qts == old_qts + 1) {
       process_qts_update(std::move(update_it->second.update), qts, std::move(promise));
@@ -2665,16 +2661,16 @@ void UpdatesManager::on_update(tl_object_ptr<telegram_api::updateNotifySettings>
       break;
     }
     case telegram_api::notifyUsers::ID:
-      td_->messages_manager_->on_update_scope_notify_settings(NotificationSettingsScope::Private,
-                                                              std::move(update->notify_settings_));
+      td_->notification_settings_manager_->on_update_scope_notify_settings(NotificationSettingsScope::Private,
+                                                                           std::move(update->notify_settings_));
       break;
     case telegram_api::notifyChats::ID:
-      td_->messages_manager_->on_update_scope_notify_settings(NotificationSettingsScope::Group,
-                                                              std::move(update->notify_settings_));
+      td_->notification_settings_manager_->on_update_scope_notify_settings(NotificationSettingsScope::Group,
+                                                                           std::move(update->notify_settings_));
       break;
     case telegram_api::notifyBroadcasts::ID:
-      td_->messages_manager_->on_update_scope_notify_settings(NotificationSettingsScope::Channel,
-                                                              std::move(update->notify_settings_));
+      td_->notification_settings_manager_->on_update_scope_notify_settings(NotificationSettingsScope::Channel,
+                                                                           std::move(update->notify_settings_));
       break;
     default:
       UNREACHABLE();
@@ -2720,6 +2716,15 @@ void UpdatesManager::on_update(tl_object_ptr<telegram_api::updateMessageReaction
   td_->messages_manager_->on_update_message_reactions(
       {DialogId(update->peer_), MessageId(ServerMessageId(update->msg_id_))}, std::move(update->reactions_),
       std::move(promise));
+}
+
+void UpdatesManager::on_update(tl_object_ptr<telegram_api::updateAttachMenuBots> update, Promise<Unit> &&promise) {
+  td_->attach_menu_manager_->reload_attach_menu_bots(std::move(promise));
+}
+
+void UpdatesManager::on_update(tl_object_ptr<telegram_api::updateWebViewResultSent> update, Promise<Unit> &&promise) {
+  td_->attach_menu_manager_->close_web_view(update->query_id_, std::move(promise));
+  send_closure(G()->td(), &Td::send_update, td_api::make_object<td_api::updateWebAppMessageSent>(update->query_id_));
 }
 
 void UpdatesManager::on_update(tl_object_ptr<telegram_api::updateFolderPeers> update, Promise<Unit> &&promise) {
@@ -2942,6 +2947,11 @@ void UpdatesManager::on_update(tl_object_ptr<telegram_api::updateBotCommands> up
   promise.set_value(Unit());
 }
 
+void UpdatesManager::on_update(tl_object_ptr<telegram_api::updateBotMenuButton> update, Promise<Unit> &&promise) {
+  td_->contacts_manager_->on_update_bot_menu_button(UserId(update->bot_id_), std::move(update->button_));
+  promise.set_value(Unit());
+}
+
 void UpdatesManager::on_update(tl_object_ptr<telegram_api::updateChatParticipants> update, Promise<Unit> &&promise) {
   td_->contacts_manager_->on_get_chat_participants(std::move(update->participants_), true);
   promise.set_value(Unit());
@@ -2970,7 +2980,7 @@ void UpdatesManager::on_update(tl_object_ptr<telegram_api::updateChatParticipant
 void UpdatesManager::on_update(tl_object_ptr<telegram_api::updateChatDefaultBannedRights> update,
                                Promise<Unit> &&promise) {
   DialogId dialog_id(update->peer_);
-  RestrictedRights permissions = get_restricted_rights(std::move(update->default_banned_rights_));
+  RestrictedRights permissions(update->default_banned_rights_);
   auto version = update->version_;
   switch (dialog_id.get_type()) {
     case DialogType::Chat:
@@ -3297,6 +3307,10 @@ void UpdatesManager::on_update(tl_object_ptr<telegram_api::updatePendingJoinRequ
   td_->messages_manager_->on_update_dialog_pending_join_requests(DialogId(update->peer_), update->requests_pending_,
                                                                  std::move(update->recent_requesters_));
   promise.set_value(Unit());
+}
+
+void UpdatesManager::on_update(tl_object_ptr<telegram_api::updateSavedRingtones> update, Promise<Unit> &&promise) {
+  td_->notification_settings_manager_->reload_saved_ringtones(std::move(promise));
 }
 
 // unsupported updates

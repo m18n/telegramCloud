@@ -13,12 +13,17 @@
 #include <typeinfo>
 #include <vector>
 #include <thread>
-#include <unistd.h>
+//#include <unistd.h>
 // Simple single-threaded example of TDLib usage.
 // Real world programs should use separate thread for the user input.
 // Example includes user authentication, receiving updates, getting chat list and sending text messages.
 
 // overloaded
+#ifdef TDCLOUD_EXPORTS
+#define TDCLOUD_API __declspec(dllexport)
+#else
+#define TDCLOUD_API __declspec(dllimport)
+#endif
 namespace detail
 {
   template <class... Fs>
@@ -51,11 +56,12 @@ auto overloaded(F... f)
 
 namespace td_api = td::td_api;
 
-class Tdlib
+ class Tdlib
 {
 public:
   Tdlib();
-  
+  ~Tdlib(); 
+ 
   void send_query(td_api::object_ptr<td_api::Function> f, std::function<void(td_api::object_ptr<td_api::Object>)> handler);
   td_api::int53 GetChannelId();
 protected:
@@ -66,7 +72,7 @@ protected:
   std::unique_ptr<td::ClientManager> client_manager_;
   std::int32_t client_id_{0};
 
-  td_api::object_ptr<td_api::AuthorizationState> authorization_state_;
+  td_api::object_ptr<TDCLOUD_API td_api::AuthorizationState> authorization_state_;
   bool are_authorized_{false};
   bool need_restart_{false};
   std::uint64_t current_query_id_{0};

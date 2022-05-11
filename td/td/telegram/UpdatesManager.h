@@ -195,6 +195,8 @@ class UpdatesManager final : public Actor {
   int32 pending_pts_ = 0;
   int32 pending_qts_ = 0;
 
+  int64 being_processed_updates_ = 0;
+
   int32 short_update_date_ = 0;
 
   int32 accumulated_pts_count_ = 0;
@@ -387,6 +389,9 @@ class UpdatesManager final : public Actor {
 
   void on_update(tl_object_ptr<telegram_api::updateMessageReactions> update, Promise<Unit> &&promise);
 
+  void on_update(tl_object_ptr<telegram_api::updateAttachMenuBots> update, Promise<Unit> &&promise);
+  void on_update(tl_object_ptr<telegram_api::updateWebViewResultSent> update, Promise<Unit> &&promise);
+
   void on_update(tl_object_ptr<telegram_api::updateFolderPeers> update, Promise<Unit> &&promise);
 
   void on_update(tl_object_ptr<telegram_api::updateUserTyping> update, Promise<Unit> &&promise);
@@ -401,6 +406,7 @@ class UpdatesManager final : public Actor {
 
   void on_update(tl_object_ptr<telegram_api::updatePeerBlocked> update, Promise<Unit> &&promise);
   void on_update(tl_object_ptr<telegram_api::updateBotCommands> update, Promise<Unit> &&promise);
+  void on_update(tl_object_ptr<telegram_api::updateBotMenuButton> update, Promise<Unit> &&promise);
 
   void on_update(tl_object_ptr<telegram_api::updateChatParticipants> update, Promise<Unit> &&promise);
   void on_update(tl_object_ptr<telegram_api::updateChatParticipantAdd> update, Promise<Unit> &&promise);
@@ -505,6 +511,8 @@ class UpdatesManager final : public Actor {
   void on_update(tl_object_ptr<telegram_api::updateTheme> update, Promise<Unit> &&promise);
 
   void on_update(tl_object_ptr<telegram_api::updatePendingJoinRequests> update, Promise<Unit> &&promise);
+
+  void on_update(tl_object_ptr<telegram_api::updateSavedRingtones> update, Promise<Unit> &&promise);
 
   // unsupported updates
 };

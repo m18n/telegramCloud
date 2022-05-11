@@ -21,6 +21,8 @@
 #include "td/telegram/MessageEntity.h"
 #include "td/telegram/MessagesManager.h"
 #include "td/telegram/Photo.h"
+#include "td/telegram/PhotoFormat.h"
+#include "td/telegram/PhotoSize.h"
 #include "td/telegram/secret_api.h"
 #include "td/telegram/StickersManager.h"
 #include "td/telegram/Td.h"
@@ -411,6 +413,8 @@ WebPagesManager::WebPagesManager(Td *td, ActorShared<> parent) : td_(td), parent
 
 void WebPagesManager::tear_down() {
   parent_.reset();
+
+  LOG(DEBUG) << "Have " << web_pages_.size() << " web pages to free";
 }
 
 WebPagesManager::~WebPagesManager() = default;
@@ -1002,9 +1006,7 @@ void WebPagesManager::update_web_page_instant_view_load_requests(WebPageId web_p
   if (r_web_page_id.is_error()) {
     LOG(INFO) << "Receive error " << r_web_page_id.error() << " for load " << web_page_id;
     combine(promises[0], std::move(promises[1]));
-    for (auto &promise : promises[0]) {
-      promise.set_error(r_web_page_id.error().clone());
-    }
+    fail_promises(promises[0], r_web_page_id.move_as_error());
     return;
   }
 
@@ -1664,9 +1666,7 @@ void WebPagesManager::on_load_web_page_from_database(WebPageId web_page_id, stri
     // web page has already been loaded from the server
   }
 
-  for (auto &promise : promises) {
-    promise.set_value(Unit());
-  }
+  set_promises(promises);
 }
 
 bool WebPagesManager::have_web_page_force(WebPageId web_page_id) {

@@ -2,214 +2,52 @@
 
 #include "core.h"
 #include <fstream>
+#include<iostream>
 #include <string.h>
 typedef char bool3;
 namespace td_api = td::td_api;
-struct messageHistory
+class TDCLOUD_API messageHistory
 {
-  messageHistory(const messageHistory &x)
-  {
-  }
-  messageHistory &operator=(const messageHistory &x)
-  {
-  }
-  messageHistory()
-  {
-  }
-  messageHistory(messageHistory &&x) noexcept
-  {
-    mess = std::move(x.mess);
-    doc = std::move(x.doc);
-    photo = std::move(x.photo);
-    video = std::move(x.video);
-  }
+public:
+  messageHistory(const messageHistory& x);
+  //messageHistory& operator=(const messageHistory& x);
+  messageHistory();
+  ~messageHistory();
+  messageHistory(messageHistory&& x) noexcept;
   td_api::object_ptr<td_api::message> mess = NULL;
   td_api::object_ptr<td_api::messageDocument> doc = NULL;
   td_api::object_ptr<td_api::messagePhoto> photo = NULL;
   td_api::object_ptr<td_api::messageVideo> video = NULL;
 };
-class messagemedia
+class TDCLOUD_API messagemedia
 {
 private:
-  td_api::file *GetFile_id(int file_id)
-  {
-    td_api::file *file = NULL;
-    if (mini)
-    {
-      if (this->mess->doc)
-      {
-        file = &(*mess->doc->document_->thumbnail_->file_);
-      }
-      else if (this->mess->photo)
-      {
-        file = &(*mess->photo->photo_->sizes_[0]->photo_);
-      }
-      else if (this->mess->video)
-      {
-        file = &(*mess->video->video_->thumbnail_->file_);
-      }
-    }
-    else
-    {
-      
-      if (this->mess->doc)
-      {
-        file = &(*mess->doc->document_->document_);
-      }
-      else if (this->mess->photo)
-      {
-        int len=mess->photo->photo_->sizes_.size();
-        file = &(*mess->photo->photo_->sizes_[len-1]->photo_);
-      }
-      else if (this->mess->video)
-      {
-        file = &(*mess->video->video_->video_);
-      }
-    }
-    return file;
-  }
+    td_api::file* GetFile_id(int file_id);
 
 public:
-  messagemedia()
-  {
-  }
-  bool Que(messagemedia &mes)
-  {
-    if (mes.GetFileID() == GetFileID())
-    {
-      return true;
-    }
-    else
-    {
-      return false;
-    }
-  }
-  void SetMessageHistory(messageHistory *mess)
-  {
-    this->mess = mess;
-  }
-  std::string GetPath()
-  {
-    std::string path;
-    if (mini)
-    {
-      if (mess->doc)
-      {
-        if(mess->doc->document_->thumbnail_)
-          return mess->doc->document_->thumbnail_->file_->local_->path_;
-      }
-      else if (mess->photo)
-      {
-        return mess->photo->photo_->sizes_[0]->photo_->local_->path_;
-      }
-      else if (mess->video)
-      {
-        if(mess->video->video_->thumbnail_)
-          return mess->video->video_->thumbnail_->file_->local_->path_;
-      }
-    }
-    else
-    {
-      if (mess->doc)
-      {
-        return mess->doc->document_->document_->local_->path_;
-      }
-      else if (mess->photo)
-      {
-        int len=mess->photo->photo_->sizes_.size();
-        return mess->photo->photo_->sizes_[len-1]->photo_->local_->path_;
-      }
-      else if (mess->video)
-      {
-        return mess->video->video_->video_->local_->path_;
-      }
-    }
-    return "";
-  }
-  void Usage()
-  {
-    count_usage++;
-  }
-  int GetCountUsage()
-  {
-    return count_usage;
-  }
-  void SetSize(int file_id, int size)
-  {
-    td_api::file *file = GetFile_id(file_id);
-    if (file)
-    {
-      file->local_->downloaded_size_ = size;
-    }
-  }
-  void SetRemoteSize(int file_id, int size)
-  {
-    td_api::file *file = GetFile_id(file_id);
-    if (file)
-    {
-      file->remote_->uploaded_size_ = size;
-    }
-  }
-  void SetPath(int file_id,std::string path){
-    td_api::file *file = GetFile_id(file_id);
-    if (file)
-    {
-      file->local_->path_=path;
-    }
-  }
-  inline bool GetMini()
-  {
-    return mini;
-  }
-  void SetMini(bool mini)
-  {
-    this->mini = mini;
-  }
-  inline int32_t GetSize();
-  inline int32_t GetRemSize();
-  inline int GetFileID();
-  void SetMessage(td_api::object_ptr<td_api::message> mess)
-  {
-    this->mess->mess = std::move(mess);
-  }
-  void SetDocumentHistory(td_api::object_ptr<td_api::messageDocument> doc)
-  {
-    this->mess->doc = std::move(doc);
-  }
-  void SetPhotoHistory(td_api::object_ptr<td_api::messagePhoto> photo)
-  {
-    this->mess->photo = std::move(photo);
-  }
-  void SetVideoHistory(td_api::object_ptr<td_api::messageVideo> video)
-  {
-    this->mess->video = std::move(video);
-  }
-  td_api::object_ptr<td_api::message> &GetMessage()
-  {
-    return mess->mess;
-  }
-  int GetUsage()
-  {
-    return count_usage;
-  }
-  bool3 GetMediaType(){
-    if(mess->doc){
-      return 1;
-    }else if(mess->photo){
-      return 0;
-    }else if(mess->video){
-      return -1;
-    }
-  }
-  std::string GetMediaTypeString(){
-    if(mess->doc){
-      return "DOCUMENT";
-    }else if(mess->photo){
-      return "PHOTO";
-    }else if(mess->video){
-      return "VIDEO";
-    }
-  }
+    messagemedia();
+    ~messagemedia();
+    bool Que(messagemedia& mes);
+    void SetMessageHistory(messageHistory* mess);
+    std::string GetPath();
+    void Usage();
+    int GetCountUsage();
+    void SetSize(int file_id, int size);
+    void SetRemoteSize(int file_id, int size);
+    void SetPath(int file_id, std::string path);
+    bool GetMini();
+    void SetMini(bool mini);
+  int32_t GetSize();
+  int32_t GetRemSize();
+  int GetFileID();
+  void SetMessage(td_api::object_ptr<td_api::message> mess);
+  void SetDocumentHistory(td_api::object_ptr<td_api::messageDocument> doc);
+  void SetPhotoHistory(td_api::object_ptr<td_api::messagePhoto> photo);
+  void SetVideoHistory(td_api::object_ptr<td_api::messageVideo> video);
+  td_api::object_ptr<td_api::message>& GetMessage();
+  int GetUsage();
+  bool3 GetMediaType();
+  std::string GetMediaTypeString();
 protected:
   int count_usage = 0;
   messageHistory *mess;
@@ -218,53 +56,39 @@ protected:
 class TdMedia
 {
 public:
-  TdMedia()
-  {
-  }
-  TdMedia(td_api::object_ptr<td_api::message> mess)
-  {
-  }
-  void Show();
+  TDCLOUD_API TdMedia();
+  TDCLOUD_API TdMedia(td_api::object_ptr<td_api::message> mess);
+  TDCLOUD_API ~TdMedia();
+  TDCLOUD_API void Show();
 
-  bool3 GetMediaPh()
-  {
-    return mediaph;
-  }
-  void SetMediaPh(bool3 media)
-  {
-    this->mediaph = media;
-  }
-  std::string GetPath()
-  {
-    return path;
-  }
-  float procLoad();
-  float procDown();
+  TDCLOUD_API bool3 GetMediaPh();
+  TDCLOUD_API void SetMediaPh(bool3 media);
+  TDCLOUD_API std::string GetPath();
+  TDCLOUD_API float procLoad();
+  TDCLOUD_API float procDown();
   messagemedia media;
-  void SetPath(std::string path)
-  {
-    this->path = path;
-  }
-
+  TDCLOUD_API void SetPath(std::string path);
 protected:
   std::string path;
   bool3 mediaph = -1;
 };
 
-struct TdFile
+struct  TdFile
 {
-
-  int count_usage = 0;
+    TDCLOUD_API TdFile();
+    TDCLOUD_API ~TdFile();
+  int count_usage = 0; 
   std::string path = "";
   std::fstream *file;
 };
 class Module
 {
 public:
-  Module();
-  Module(Tdlib *td);
-  virtual void UpdatesModule(td_api::object_ptr<td_api::Object> &mod);
-  void SetTd(Tdlib *td);
+  TDCLOUD_API Module();
+  TDCLOUD_API Module(Tdlib *td);
+  TDCLOUD_API ~Module();
+  TDCLOUD_API virtual void UpdatesModule(td_api::object_ptr<td_api::Object> &mod);
+  TDCLOUD_API void SetTd(Tdlib *td);
 
 protected:
   Tdlib *td;
@@ -272,24 +96,15 @@ protected:
 class HistoryChat : public Module
 {
 public:
-  HistoryChat();
-  HistoryChat(Tdlib *td);
-
-  void UpdateChatHistory();
-  void WaitHistory();
-  messagemedia GetMessage(int index);
-  void AddMessageHistory(messageHistory mess)
-  {
-    messages.push_back(std::move(mess));
-  }
-  int GetCount()
-  {
-    return messages.size();
-  }
-  void Test()
-  {
-    int in = messages.size();
-  }
+ TDCLOUD_API  HistoryChat();
+ TDCLOUD_API HistoryChat(Tdlib *td);
+ TDCLOUD_API ~HistoryChat();
+ TDCLOUD_API void UpdateChatHistory();
+ TDCLOUD_API void WaitHistory();
+ TDCLOUD_API messagemedia GetMessage(int index);
+ TDCLOUD_API void AddMessageHistory(messageHistory mess);
+ TDCLOUD_API int GetCount();
+ TDCLOUD_API void Test();
 
 private:
   bool CheckMedia(td::tl_object_ptr<td::td_api::message> &mess);
@@ -303,9 +118,9 @@ class MenagerUDFile : public Module
 {
 
 public:
-  MenagerUDFile();
-  MenagerUDFile(Tdlib *td);
-
+    TDCLOUD_API MenagerUDFile();
+    TDCLOUD_API MenagerUDFile(Tdlib *td);
+    TDCLOUD_API ~MenagerUDFile();
 private:
   void procLogMiniPhoto(std::fstream &file);
   int SearchVPhoto(std::string path, bool commpress, bool3 mediaph);
@@ -315,16 +130,14 @@ private:
   void GetProcFile(int id);
  
 public:
-  void UpdatesModule(td_api::object_ptr<td_api::Object> &mod) override;
-  void LoadPhoto(std::string path, bool commpress);
-  void ShowLoadPhoto();
-  void LoadVideo(std::string path);
-  TdMedia* DownloadFile(messagemedia mess, bool mini);
+    TDCLOUD_API void UpdatesModule(td_api::object_ptr<td_api::Object> &mod) override;
+    TDCLOUD_API void LoadPhoto(std::string path, bool commpress);
+    TDCLOUD_API void ShowLoadPhoto();
+    TDCLOUD_API void LoadVideo(std::string path);
+    TDCLOUD_API TdMedia* DownloadFile(messagemedia mess, bool mini);
   
-  void SetHistoryChat(HistoryChat* hist);
-  void Test(){
-    TdMedia* p=downphoto[0];
-  }
+    TDCLOUD_API void SetHistoryChat(HistoryChat* hist);
+
 private:
   std::vector<messageHistory> loadbuffer;
   HistoryChat* hist;

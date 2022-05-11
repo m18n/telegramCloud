@@ -1,10 +1,163 @@
 #include "header/Moduls.h"
+messageHistory::messageHistory(const messageHistory& x)
+{
+}
+//messageHistory::messageHistory& operator=(const messageHistory& x)
+//{
+//}
+messageHistory::messageHistory()
+{
+}
+messageHistory::~messageHistory() {
 
+}
+messageHistory::messageHistory(messageHistory&& x) noexcept
+{
+    mess = std::move(x.mess);
+    doc = std::move(x.doc);
+    photo = std::move(x.photo);
+    video = std::move(x.video);
+}
+td_api::file* messagemedia::GetFile_id(int file_id)
+{
+    td_api::file* file = NULL;
+    if (mini)
+    {
+        if (this->mess->doc)
+        {
+            file = &(*mess->doc->document_->thumbnail_->file_);
+        }
+        else if (this->mess->photo)
+        {
+            file = &(*mess->photo->photo_->sizes_[0]->photo_);
+        }
+        else if (this->mess->video)
+        {
+            file = &(*mess->video->video_->thumbnail_->file_);
+        }
+    }
+    else
+    {
+
+        if (this->mess->doc)
+        {
+            file = &(*mess->doc->document_->document_);
+        }
+        else if (this->mess->photo)
+        {
+            int len = mess->photo->photo_->sizes_.size();
+            file = &(*mess->photo->photo_->sizes_[len - 1]->photo_);
+        }
+        else if (this->mess->video)
+        {
+            file = &(*mess->video->video_->video_);
+        }
+    }
+    return file;
+}
+messagemedia::messagemedia()
+{
+}
+messagemedia::~messagemedia() {
+
+}
+bool messagemedia::Que(messagemedia& mes)
+{
+    if (mes.GetFileID() == GetFileID())
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+void messagemedia::SetMessageHistory(messageHistory* mess)
+{
+    this->mess = mess;
+}
+std::string messagemedia::GetPath()
+{
+    std::string path;
+    if (mini)
+    {
+        if (mess->doc)
+        {
+            if (mess->doc->document_->thumbnail_)
+                return mess->doc->document_->thumbnail_->file_->local_->path_;
+        }
+        else if (mess->photo)
+        {
+            return mess->photo->photo_->sizes_[0]->photo_->local_->path_;
+        }
+        else if (mess->video)
+        {
+            if (mess->video->video_->thumbnail_)
+                return mess->video->video_->thumbnail_->file_->local_->path_;
+        }
+    }
+    else
+    {
+        if (mess->doc)
+        {
+            return mess->doc->document_->document_->local_->path_;
+        }
+        else if (mess->photo)
+        {
+            int len = mess->photo->photo_->sizes_.size();
+            return mess->photo->photo_->sizes_[len - 1]->photo_->local_->path_;
+        }
+        else if (mess->video)
+        {
+            return mess->video->video_->video_->local_->path_;
+        }
+    }
+    return "";
+}
+void messagemedia::Usage()
+{
+    count_usage++;
+}
+int messagemedia::GetCountUsage()
+{
+    return count_usage;
+}
+void messagemedia::SetSize(int file_id, int size)
+{
+    td_api::file* file = GetFile_id(file_id);
+    if (file)
+    {
+        file->local_->downloaded_size_ = size;
+    }
+}
+void messagemedia::SetRemoteSize(int file_id, int size)
+{
+    td_api::file* file = GetFile_id(file_id);
+    if (file)
+    {
+        file->remote_->uploaded_size_ = size;
+    }
+}
+void messagemedia::SetPath(int file_id, std::string path) {
+    td_api::file* file = GetFile_id(file_id);
+    if (file)
+    {
+        file->local_->path_ = path;
+    }
+}
+bool messagemedia::GetMini()
+{
+    return mini;
+}
+void messagemedia::SetMini(bool mini)
+{
+    this->mini = mini;
+}
 void TdMedia::Show()
 {
   std::cout << "PATH: " << path << " REMOTE_ID: " << media.GetRemSize() << " SIZE: " << procLoad() << "%" << (int)mediaph << "\n";
 }
-inline int32_t messagemedia::GetSize()
+int32_t messagemedia::GetSize()
 {
   int32_t size = 0;
   if (mini)
@@ -40,7 +193,7 @@ inline int32_t messagemedia::GetSize()
   }
   return size;
 }
-inline int messagemedia::GetFileID()
+int messagemedia::GetFileID()
 {
   int32_t size = 0;
   if (mini)
@@ -79,7 +232,7 @@ inline int messagemedia::GetFileID()
   }
   return size;
 }
-inline int32_t messagemedia::GetRemSize()
+int32_t messagemedia::GetRemSize()
 {
   int32_t size = 0;
   if (mini)
@@ -115,6 +268,52 @@ inline int32_t messagemedia::GetRemSize()
   }
   return size;
 }
+void messagemedia::SetMessage(td_api::object_ptr<td_api::message> mess)
+{
+    this->mess->mess = std::move(mess);
+}
+void messagemedia::SetDocumentHistory(td_api::object_ptr<td_api::messageDocument> doc)
+{
+    this->mess->doc = std::move(doc);
+}
+void messagemedia::SetPhotoHistory(td_api::object_ptr<td_api::messagePhoto> photo)
+{
+    this->mess->photo = std::move(photo);
+}
+void messagemedia::SetVideoHistory(td_api::object_ptr<td_api::messageVideo> video)
+{
+    this->mess->video = std::move(video);
+}
+td_api::object_ptr<td_api::message>& messagemedia::GetMessage()
+{
+    return mess->mess;
+}
+int messagemedia::GetUsage()
+{
+    return count_usage;
+}
+bool3 messagemedia::GetMediaType() {
+    if (mess->doc) {
+        return 1;
+    }
+    else if (mess->photo) {
+        return 0;
+    }
+    else if (mess->video) {
+        return -1;
+    }
+}
+std::string messagemedia::GetMediaTypeString() {
+    if (mess->doc) {
+        return "DOCUMENT";
+    }
+    else if (mess->photo) {
+        return "PHOTO";
+    }
+    else if (mess->video) {
+        return "VIDEO";
+    }
+}
 float TdMedia::procLoad()
 {
   float proc = 100 / ((float)media.GetSize() / (float)media.GetRemSize());
@@ -127,12 +326,40 @@ float TdMedia::procDown()
   float proc = 100 / (sizeremot / sizeloc);
   return proc;
 }
+TdMedia::TdMedia()
+{
+}
+TdMedia::TdMedia(td_api::object_ptr<td_api::message> mess)
+{
+}
+TdMedia::~TdMedia() {
+
+}
+bool3 TdMedia::GetMediaPh()
+{
+    return mediaph;
+}
+void TdMedia::SetMediaPh(bool3 media)
+{
+    this->mediaph = media;
+}
+std::string TdMedia::GetPath()
+{
+    return path;
+}
+void TdMedia::SetPath(std::string path)
+{
+    this->path = path;
+}
 Module::Module()
 {
 }
 Module::Module(Tdlib *td)
 {
   this->td = td;
+}
+Module::~Module() {
+
 }
 void Module::UpdatesModule(td_api::object_ptr<td_api::Object> &mod)
 {
@@ -148,6 +375,9 @@ HistoryChat::HistoryChat()
 HistoryChat::HistoryChat(Tdlib *td)
 {
   this->td = td;
+}
+HistoryChat::~HistoryChat() {
+
 }
 bool HistoryChat::CheckMedia(td::tl_object_ptr<td::td_api::message> &mess)
 {
@@ -233,25 +463,46 @@ messagemedia HistoryChat::GetMessage(int index)
   mess.SetMessageHistory(&messages[index]);
   return mess;
 }
+void HistoryChat::AddMessageHistory(messageHistory mess)
+{
+    messages.push_back(std::move(mess));
+}
+int HistoryChat::GetCount()
+{
+    return messages.size();
+}
+void HistoryChat::Test()
+{
+    int in = messages.size();
+}
+TdFile::TdFile() {
+    file = NULL;
+}
+TdFile::~TdFile() {
+
+}
 MenagerUDFile::MenagerUDFile()
 {
-  std::fstream fminiphoto;
+ /* std::fstream fminiphoto;
   fminiphoto.open("tdlib/thumbnails/miniphoto.txt", std::ios_base::in | std::ios_base::out);
   if (fminiphoto.is_open())
     procLogMiniPhoto(fminiphoto);
   else
     std::cout << "ERROR OPEN LOG\n";
-  fminiphoto.close();
+  fminiphoto.close();*/
 }
 MenagerUDFile::MenagerUDFile(Tdlib *td) : Module(td)
 {
-  std::fstream fminiphoto;
+ /* std::fstream fminiphoto;
   fminiphoto.open("tdlib/thumbnails/miniphoto.txt", std::ios_base::in | std::ios_base::out);
   if (fminiphoto.is_open())
     procLogMiniPhoto(fminiphoto);
   else
     std::cout << "ERROR OPEN LOG\n";
-  fminiphoto.close();
+  fminiphoto.close();*/
+}
+MenagerUDFile::~MenagerUDFile() {
+
 }
 void MenagerUDFile::procLogMiniPhoto(std::fstream &file)
 {
@@ -368,7 +619,8 @@ void MenagerUDFile::LoadPhoto(std::string path, bool commpress)
                 id_tdp=SearchVPhoto(ph->document_->document_->local_->path_,false,1);
                 this->loadphoto[id_tdp].media.SetDocumentHistory(std::move(ph));
                 this->loadphoto[id_tdp].media.SetMessage(std::move(mess));
-                GetRometeSize(id_tdp); });
+                GetRometeSize(id_tdp); 
+      });
   loadphoto.push_back(td);
 }
 void MenagerUDFile::ShowLoadPhoto()

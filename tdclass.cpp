@@ -1,5 +1,20 @@
 #include "header/tdclass.h"
+TdCloud::TdCloud()
+{
+    td::ClientManager::execute(td_api::make_object<td_api::setLogVerbosityLevel>(1));
+    client_manager_ = std::make_unique<td::ClientManager>();
+    client_id_ = client_manager_->create_client_id();
+    send_query(td_api::make_object<td_api::getOption>("use_quick_ack"), [this](Object object)
+        { std::cout << to_string(object) << std::endl; });
+    hist.SetTd(this);
+    file.SetTd(this);
+    file.SetHistoryChat(&hist);
+    downloaded.resize(block);
 
+}
+TdCloud::~TdCloud() {
+
+}
 void TdCloud::GetUpdate()
 {
   while (true)
@@ -10,6 +25,67 @@ void TdCloud::GetUpdate()
       process_response(std::move(response));
     }
   }
+}
+void TdCloud::SetBlockSize(int block) {
+    this->block = block;
+
+    downloaded.resize(block);
+}
+int TdCloud::GetBlockSize() {
+    return block;
+}
+void TdCloud::RenderMedia()
+{
+    for (int i = 0; i < download.size(); i++) {
+        std::cout << "RENDER: " << download[i]->media.GetMediaTypeString() << " PATH: " << download[i]->media.GetPath() << "\n";
+    }
+}
+void TdCloud::StatusDownload()
+{
+    bool down = true;
+    while (down)
+    {
+        std::system("clear");
+        for (int i = 0; i < downloaded.size(); i++)
+        {
+            if (downloaded[i] != NULL)
+            {
+                if (downloaded[i]->procDown() == 100)
+                {
+
+                    download.push_back(downloaded[i]);
+
+                    downloaded[i] = NULL;
+                }
+                else
+                {
+                    std::cout << "MED path: " << downloaded[i]->media.GetPath() << "  PROC DOWN: " << downloaded[i]->procDown() << "%\n";
+                }
+            }
+        }
+
+        for (int i = 0; i < downloaded.size(); i++) {
+            if (downloaded[i] == NULL) {
+                down = false;
+            }
+            else {
+                down = true;
+                break;
+            }
+        }
+    }
+    std::system("clear");
+    RenderMedia();
+}
+void TdCloud::DownloadBlock(int start, int sizeblock)
+{
+    SetBlockSize(sizeblock);
+    for (int i = start; i < start + block; i++)
+    {
+        TdMedia* td = DownloadManager(i, true);
+        downloaded[i - start] = td;
+    }
+    StatusDownload();
 }
 void TdCloud::Login()
 {

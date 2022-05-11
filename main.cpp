@@ -389,26 +389,26 @@ namespace td_api = td::td_api;
 // };
 
 
-int main()
-{
-  TdCloud example;
-  example.Login();
-  example.ChannelInit();
-  example.hist.UpdateChatHistory();
-  example.hist.WaitHistory();
-  // example.DownloadManager(3,false);
-  int size = example.hist.GetCount();
-  example.DownloadBlock(0,30);
- 
-
-
-  // TdMedia* mini=example.file.GetHistoryMedia(0,0);
-  // TdMedia* max=example.file.GetHistoryMedia(0,1);
-  // sleep(3);
-  // std::cout<<"DOWNLOAD MINI SLEEP: "<<mini->remote_size<<"\n";
-  // std::cout<<"DOWNLOAD MAX SLEEP: "<<max->remote_size<<"\n";
-  // example.DownloadPhoto(0);
-
-  std::cin.get();
-  std::cin.get();
-}
+//int main()
+//{
+//  TdCloud example;
+//  example.Login();
+//  example.ChannelInit();
+//  example.hist.UpdateChatHistory();
+//  example.hist.WaitHistory();
+//  // example.DownloadManager(3,false);
+//  int size = example.hist.GetCount();
+//  example.DownloadBlock(0,30);
+// 
+//
+//
+//  // TdMedia* mini=example.file.GetHistoryMedia(0,0);
+//  // TdMedia* max=example.file.GetHistoryMedia(0,1);
+//  // sleep(3);
+//  // std::cout<<"DOWNLOAD MINI SLEEP: "<<mini->remote_size<<"\n";
+//  // std::cout<<"DOWNLOAD MAX SLEEP: "<<max->remote_size<<"\n";
+//  // example.DownloadPhoto(0);
+//
+//  //std::cin.get();
+//  //std::cin.get();
+//}

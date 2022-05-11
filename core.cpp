@@ -7,6 +7,9 @@
     send_query(td_api::make_object<td_api::getOption>("use_quick_ack"), [this](Object object)
                { std::cout << to_string(object) << std::endl; });
   }
+  Tdlib::~Tdlib() {
+
+  }
 void Tdlib::send_query(td_api::object_ptr<td_api::Function> f, std::function<void(td_api::object_ptr<td_api::Object>)> handler)
 {
     auto query_id = next_query_id();
@@ -24,7 +27,7 @@ td_api::int53 Tdlib::GetChannelId()
 void Tdlib::restart()
 {
     client_manager_.reset();
-    *this = Tdlib();
+   // *this = Tdlib();
 }
 
 void Tdlib::process_response(td::ClientManager::Response response)
