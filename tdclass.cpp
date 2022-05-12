@@ -1,4 +1,7 @@
 #include "header/tdclass.h"
+void CallBackTdCloud::CallBackLogin() {
+
+}
 TdCloud::TdCloud()
 {
     td::ClientManager::execute(td_api::make_object<td_api::setLogVerbosityLevel>(1));
@@ -9,7 +12,7 @@ TdCloud::TdCloud()
     hist.SetTd(this);
     file.SetTd(this);
     file.SetHistoryChat(&hist);
-    downloaded.resize(block);
+  
 
 }
 TdCloud::~TdCloud() {
@@ -29,84 +32,41 @@ void TdCloud::GetUpdate()
 void TdCloud::SetBlockSize(int block) {
     this->block = block;
 
-    downloaded.resize(block);
+  
 }
 int TdCloud::GetBlockSize() {
     return block;
 }
-void TdCloud::RenderMedia()
-{
-    for (int i = 0; i < download.size(); i++) {
-        std::cout << "RENDER: " << download[i]->media.GetMediaTypeString() << " PATH: " << download[i]->media.GetPath() << "\n";
-    }
-}
-void TdCloud::StatusDownload()
-{
-    bool down = true;
-    while (down)
-    {
-        std::system("clear");
-        for (int i = 0; i < downloaded.size(); i++)
-        {
-            if (downloaded[i] != NULL)
-            {
-                if (downloaded[i]->procDown() == 100)
-                {
 
-                    download.push_back(downloaded[i]);
 
-                    downloaded[i] = NULL;
-                }
-                else
-                {
-                    std::cout << "MED path: " << downloaded[i]->media.GetPath() << "  PROC DOWN: " << downloaded[i]->procDown() << "%\n";
-                }
-            }
-        }
+void TdCloud::SetCallBack(CallBackTdCloud* callf) {
+    calltg = callf;
+}
 
-        for (int i = 0; i < downloaded.size(); i++) {
-            if (downloaded[i] == NULL) {
-                down = false;
-            }
-            else {
-                down = true;
-                break;
-            }
-        }
-    }
-    std::system("clear");
-    RenderMedia();
-}
-void TdCloud::DownloadBlock(int start, int sizeblock)
-{
-    SetBlockSize(sizeblock);
-    for (int i = start; i < start + block; i++)
-    {
-        TdMedia* td = DownloadManager(i, true);
-        downloaded[i - start] = td;
-    }
-    StatusDownload();
-}
 void TdCloud::Login()
 {
-  while (true)
-  {
+    while (true)
+    {
 
-    if (need_restart_)
-    {
-      restart();
+        if (need_restart_)
+        {
+            restart();
+        }
+        else if (!are_authorized_)
+        {
+            process_response(client_manager_->receive(10));
+        }
+        else
+        {
+
+            //calltg->CallBackLogin();
+            std::thread th(&TdCloud::GetUpdate, this);
+            th.detach();
+            break;
+        }
     }
-    else if (!are_authorized_)
-    {
-      process_response(client_manager_->receive(10));
-    }
-    else
-    {
-      std::thread th(&TdCloud::GetUpdate, this);
-      th.detach();
-      break;
-    }
-  }
+    
+  
 }
 
 void TdCloud::CreateChannel()
